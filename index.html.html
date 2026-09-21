@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central dos Desafios Matemáticos</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#2563eb,#7c3aed);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
+.container{width:100%;max-width:620px;background:#fff;border-radius:22px;padding:28px;box-shadow:0 12px 35px rgba(0,0,0,.28);text-align:center}
+h1{color:#222;margin-top:0}h2{color:#333}.hidden{display:none}
+input{width:90%;max-width:420px;padding:13px;font-size:20px;text-align:center;border:2px solid #ccc;border-radius:10px;margin:10px 0}
+button{border:0;border-radius:11px;background:#2563eb;color:#fff;padding:13px 20px;font-size:17px;font-weight:bold;cursor:pointer;margin:6px}
+button:hover{background:#1d4ed8}
+.mode{border:2px solid #e5e7eb;border-radius:15px;padding:18px;margin:12px 0;cursor:pointer;text-align:left;background:#fafafa}
+.mode:hover{border-color:#2563eb;background:#eff6ff}.mode h3{margin:0 0 7px}.mode p{margin:5px 0;color:#555}
+.info{display:flex;gap:10px;margin:18px 0}.box{flex:1;background:#f1f5f9;padding:12px;border-radius:11px}
+.box strong{display:block;font-size:27px;color:#2563eb;margin-top:4px}
+#question{font-size:44px;font-weight:bold;margin:28px 0;color:#222}#feedback{min-height:27px;font-weight:bold;margin-top:10px}
+#finalScore{font-size:50px;font-weight:bold;color:#2563eb;margin:15px}
+#ranking{text-align:left;margin-top:25px}#ranking ol{padding-left:28px}#ranking li{padding:7px;border-bottom:1px solid #ddd}
+.recorde{background:#fff7ed;border-radius:10px;padding:12px;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div id="menu">
+<h1>🧠 Central dos Desafios</h1>
+<p>Digite seu nome e escolha um desafio:</p>
+<input id="nome" maxlength="20" placeholder="Seu nome">
+
+<div class="mode" onclick="selecionarModo(1)">
+<h3>🧮 4 Operações — 3 minutos</h3>
+<p>Adição, subtração, multiplicação e divisão.</p>
+<p>✅ +1 ponto &nbsp; ❌ −1 ponto</p>
+</div>
+
+<div class="mode" onclick="selecionarModo(2)">
+<h3>✖️ Desafio da Tabuada — 2 minutos</h3>
+<p>Multiplicações de 1 a 9.</p>
+<p>✅ +1 ponto &nbsp; ❌ −1 ponto</p>
+</div>
+
+<div class="mode" onclick="selecionarModo(3)">
+<h3>⏱️ 4 Operações — Tempo Dinâmico</h3>
+<p>Começa com 60 segundos.</p>
+<p>✅ +3 segundos &nbsp; ❌ −3 segundos</p>
+</div>
+
+<div class="recorde">🏆 Os rankings de cada modo são separados.</div>
+</div>
+
+<div id="jogo" class="hidden">
+<h2 id="jogador"></h2><p id="modoAtual"></p>
+<div class="info">
+<div class="box"><span>⏱️ Tempo</span><strong id="tempo">3:00</strong></div>
+<div class="box"><span>🏆 Pontos</span><strong id="pontos">0</strong></div>
+</div>
+<div id="question">1 + 1 = ?</div>
+<input type="number" id="resposta" placeholder="Resposta" autocomplete="off"><br>
+<button onclick="responder()">Responder</button>
+<button onclick="sairDoJogo()">Sair</button>
+<div id="feedback"></div>
+</div>
+
+<div id="resultado" class="hidden">
+<h1>🏁 Fim de jogo!</h1><h2 id="nomeFinal"></h2><p id="modoFinal"></p>
+<div id="finalScore">0 pontos</div><p id="mensagem"></p>
+<button onclick="voltarMenu()">Voltar ao menu</button>
+<div id="ranking"><h2>🏆 Ranking deste modo</h2><ol id="listaRanking"></ol></div>
+</div>
+
+</div>
+
+<script>
+let modo=0,nomeAtual="",pontos=0,tempo=0,intervalo=null;
+let numero1=0,numero2=0,operador="",respostaCorreta=0;
+const nomesModos={1:"4 Operações — 3 minutos",2:"Tabuada — 2 minutos",3:"4 Operações — Tempo Dinâmico"};
+
+function chaveRanking(){return "rankingModo"+modo}
+function carregarRanking(){try{return JSON.parse(localStorage.getItem(chaveRanking()))||[]}catch(e){return[]}}
+function salvarRanking(r){try{localStorage.setItem(chaveRanking(),JSON.stringify(r))}catch(e){}}
+
+function selecionarModo(escolhido){
+ const n=document.getElementById("nome").value.trim();
+ if(n===""){alert("Digite seu nome primeiro!");document.getElementById("nome").focus();return}
+ modo=escolhido;nomeAtual=n;iniciarJogo();
+}
+
+function iniciarJogo(){
+ pontos=0;
+ if(modo===1)tempo=180;
+ if(modo===2)tempo=120;
+ if(modo===3)tempo=60;
+ document.getElementById("menu").classList.add("hidden");
+ document.getElementById("resultado").classList.add("hidden");
+ document.getElementById("jogo").classList.remove("hidden");
+ document.getElementById("jogador").textContent="👤 "+nomeAtual;
+ document.getElementById("modoAtual").textContent="🎮 "+nomesModos[modo];
+ document.getElementById("pontos").textContent="0";
+ atualizarTempo();novaPergunta();document.getElementById("resposta").focus();
+ clearInterval(intervalo);
+ intervalo=setInterval(function(){tempo--;atualizarTempo();if(tempo<=0)terminarJogo()},1000);
+}
+
+function atualizarTempo(){
+ const t=Math.max(0,tempo),m=Math.floor(t/60),s=t%60;
+ document.getElementById("tempo").textContent=m+":"+String(s).padStart(2,"0");
+}
+
+function novaPergunta(){
+ let tipo=Math.floor(Math.random()*4);
+ if(modo===2){
+  numero1=Math.floor(Math.random()*9)+1;numero2=Math.floor(Math.random()*9)+1;
+  operador="×";respostaCorreta=numero1*numero2;
+ }else if(tipo===0){
+  numero1=Math.floor(Math.random()*50)+1;numero2=Math.floor(Math.random()*50)+1;
+  operador="+";respostaCorreta=numero1+numero2;
+ }else if(tipo===1){
+  numero1=Math.floor(Math.random()*50)+1;numero2=Math.floor(Math.random()*50)+1;
+  if(numero2>numero1){let x=numero1;numero1=numero2;numero2=x}
+  operador="−";respostaCorreta=numero1-numero2;
+ }else if(tipo===2){
+  numero1=Math.floor(Math.random()*12)+1;numero2=Math.floor(Math.random()*12)+1;
+  operador="×";respostaCorreta=numero1*numero2;
+ }else{
+  numero2=Math.floor(Math.random()*12)+1;let r=Math.floor(Math.random()*12)+1;
+  numero1=numero2*r;operador="÷";respostaCorreta=r;
+ }
+ document.getElementById("question").textContent=numero1+" "+operador+" "+numero2+" = ?";
+ document.getElementById("resposta").value="";document.getElementById("resposta").focus();
+}
+
+function responder(){
+ if(tempo<=0)return;
+ const campo=document.getElementById("resposta");
+ if(campo.value==="")return;
+ const valor=Number(campo.value),feedback=document.getElementById("feedback");
+ if(valor===respostaCorreta){
+  pontos++;feedback.style.color="green";
+  feedback.textContent=modo===3?"✅ Acertou! +1 ponto e +3 segundos":"✅ Acertou! +1 ponto";
+  if(modo===3)tempo+=3;
+ }else{
+  pontos--;feedback.style.color="red";
+  feedback.textContent=modo===3?"❌ Errou! -1 ponto e -3 segundos":"❌ Errou! -1 ponto";
+  if(modo===3)tempo=Math.max(0,tempo-3);
+ }
+ document.getElementById("pontos").textContent=pontos;atualizarTempo();
+ if(tempo<=0)terminarJogo();else novaPergunta();
+}
+
+function terminarJogo(){
+ if(document.getElementById("jogo").classList.contains("hidden"))return;
+ clearInterval(intervalo);
+ document.getElementById("jogo").classList.add("hidden");
+ document.getElementById("resultado").classList.remove("hidden");
+ document.getElementById("nomeFinal").textContent="👤 "+nomeAtual;
+ document.getElementById("modoFinal").textContent=nomesModos[modo];
+ document.getElementById("finalScore").textContent=pontos+" pontos";
+ document.getElementById("mensagem").textContent=pontos>=30?"🔥 Incrível!":pontos>=15?"👏 Muito bem!":"💪 Continue praticando!";
+ let ranking=carregarRanking();
+ ranking.push({nome:nomeAtual,pontos:pontos});
+ ranking.sort((a,b)=>b.pontos-a.pontos);ranking=ranking.slice(0,10);salvarRanking(ranking);mostrarRanking(ranking);
+}
+
+function mostrarRanking(ranking){
+ const lista=document.getElementById("listaRanking");lista.innerHTML="";
+ for(let i=0;i<ranking.length;i++){
+  const item=document.createElement("li");
+  item.textContent=(i+1)+"º - "+ranking[i].nome+" - "+ranking[i].pontos+" pontos";
+  lista.appendChild(item);
+ }
+}
+
+function voltarMenu(){
+ clearInterval(intervalo);
+ document.getElementById("resultado").classList.add("hidden");
+ document.getElementById("jogo").classList.add("hidden");
+ document.getElementById("menu").classList.remove("hidden");
+}
+function sairDoJogo(){clearInterval(intervalo);voltarMenu()}
+document.getElementById("resposta").addEventListener("keydown",function(e){if(e.key==="Enter")responder()});
+</script>
+</body>
+</html>
